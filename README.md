@@ -13,19 +13,20 @@ This Android application implements a complete Stereo Vision pipeline using a si
     - Disparity Map generation using `StereoBM`.
 - **4. Depth / Results**: Calculation of depth $Z$ using focal length and baseline. Export of results to a `.ply` point cloud file.
 
+I decided to include the steps I took to perform the experirment (as seen below) for the ease of prospective students to easily through the process;
 ## 🧪 Experimental Procedure
 
 Follow these steps to reproduce the experiment as described in the course material:
 
 ### Phase 1: Physical Setup
-1. Mount your smartphone on a sliding rail or a stable tripod.
-2. Prepare a printed **Chessboard Pattern** (typically 10x7 squares, providing 9x6 inner corners) on a flat surface.
-3. Ensure the scene has adequate lighting and distinct features for better matching.
+1. I mounted my smartphone on a stable tripod.
+2. I prepare a printed **Chessboard Pattern** (providing 9x6 inner corners) on a flat surface.
+3. I ensured the scene has adequate lighting and distinct features for better matching.
 
 ### Phase 2: Camera Calibration (Task T1)
-1. Open the **1. Calibration** menu in the app.
-2. Point the camera at the chessboard from various angles and distances.
-3. When the board is detected, click **"Add Pose"**. Collect at least **10 to 15 different poses**.
+1. Open the **1. Calibration** menu in the app. This was only possible because the app was functional in my phone after launching from Android Studio
+2. Pointed the camera at the chessboard from various angles and distances.
+3. When the board is detected, I clicked **"Add Pose"**. Collect at least **10 to 15 different poses**.
 4. Click **"Calibrate"**. The app will calculate the intrinsic parameters and save them to `calib.yml` in the app's internal storage.
 
 ### Phase 3: Stereo Capture (Task T2)
