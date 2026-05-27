@@ -29,6 +29,7 @@
         <activity android:name=".CaptureActivity" android:label="Capture" />
         <activity android:name=".ProcessingActivity" android:label="Processing" />
         <activity android:name=".DepthActivity" android:label="Depth / Results" />
+        <activity android:name=".AiPipelineActivity" android:label="AI Pipeline" />
     </application>
 
 </manifest>

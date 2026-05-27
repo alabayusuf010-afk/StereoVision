@@ -94,6 +94,7 @@ fun MainMenu(onNavigate: (Class<*>) -> Unit, modifier: Modifier = Modifier) {
         MenuButton("2. Capture", onClick = { onNavigate(CaptureActivity::class.java) })
         MenuButton("3. Processing", onClick = { onNavigate(ProcessingActivity::class.java) })
         MenuButton("4. Depth / Results", onClick = { onNavigate(DepthActivity::class.java) })
+        MenuButton("5. AI Pipeline", onClick = { onNavigate(AiPipelineActivity::class.java) })
     }
 }
 
