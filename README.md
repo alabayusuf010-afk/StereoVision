@@ -12,6 +12,7 @@ This Android application implements a complete Stereo Vision pipeline using a si
     - Uncalibrated Stereo Rectification.
     - Disparity Map generation using `StereoBM`.
 - **4. Depth / Results**: Calculation of depth $Z$ using focal length and baseline. Export of results to a `.ply` point cloud file.
+- **5. AI Pipeline**: Integration of deep-learning based depth estimation.
 
 I decided to include the steps I took to perform the experirment (as seen below) for the ease of prospective students to easily through the process;
 ## 🧪 Experimental Procedure
@@ -70,7 +71,7 @@ Follow these steps to reproduce the experiment as described in the course materi
 - `ProcessingActivity.kt`: ORB matching, F estimation, and Disparity (T3-T7).
 - `DepthActivity.kt`: Z calculation and PLY export (T8).
 - `StereoUtils.kt`: CV utility functions and file I/O.
-
+- AiPipelineActivity.kt: Implementation of the AI-driven vision tasks.
 ## 👨‍🏫 Acknowledgments
 - **Institution**: UFLA - Departamento de Automática
 - **Professor**: Arthur de Miranda Neto
