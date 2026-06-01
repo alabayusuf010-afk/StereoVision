@@ -53,8 +53,16 @@ object StereoUtils {
         }
         sb.append("\n")
         // Save Dist Coeffs
-        for (i in 0 until distCoeffs.cols()) {
-            sb.append(distCoeffs.get(0, i)[0]).append(",")
+        val rows = distCoeffs.rows()
+        val cols = distCoeffs.cols()
+        if (rows >= cols) {
+            for (i in 0 until rows) {
+                sb.append(distCoeffs.get(i, 0)[0]).append(",")
+            }
+        } else {
+            for (j in 0 until cols) {
+                sb.append(distCoeffs.get(0, j)[0]).append(",")
+            }
         }
         file.writeText(sb.toString())
     }

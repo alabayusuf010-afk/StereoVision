@@ -31,7 +31,7 @@ class AiPipelineActivity : ComponentActivity() {
                             style = MaterialTheme.typography.headlineMedium
                         )
                         Text(
-                            text = "This module will handle the AI-based Stereo Vision pipeline.",
+                            text = "This module is currently disabled to prevent build errors.",
                             modifier = Modifier.padding(top = 16.dp)
                         )
                         Button(

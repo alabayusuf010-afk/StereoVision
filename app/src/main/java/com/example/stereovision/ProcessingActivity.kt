@@ -32,14 +32,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.opencv.calib3d.Calib3d
 import org.opencv.calib3d.StereoBM
+import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.DMatch
 import org.opencv.core.Mat
 import org.opencv.core.MatOfDMatch
 import org.opencv.core.MatOfKeyPoint
 import org.opencv.core.MatOfPoint2f
+import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.features2d.DescriptorMatcher
+import org.opencv.features2d.Features2d
 import org.opencv.features2d.ORB
 import org.opencv.imgproc.Imgproc
 import java.io.File
@@ -50,6 +53,8 @@ class ProcessingActivity : ComponentActivity() {
         setContent {
             StereoVisionTheme {
                 var resultBitmap by remember { mutableStateOf<Bitmap?>(null) }
+                var matchesBitmap by remember { mutableStateOf<Bitmap?>(null) }
+                var rectifiedBitmap by remember { mutableStateOf<Bitmap?>(null) }
                 var statusText by remember { mutableStateOf("Ready to process") }
                 var isProcessing by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
@@ -73,7 +78,14 @@ class ProcessingActivity : ComponentActivity() {
                             onClick = {
                                 scope.launch {
                                     isProcessing = true
-                                    resultBitmap = processStereo { statusText = it }
+                                    matchesBitmap = null
+                                    rectifiedBitmap = null
+                                    resultBitmap = null
+                                    resultBitmap = processStereo(
+                                        onUpdateStatus = { statusText = it },
+                                        onUpdateMatches = { matchesBitmap = it },
+                                        onUpdateRectified = { rectifiedBitmap = it }
+                                    )
                                     isProcessing = false
                                 }
                             },
@@ -83,7 +95,26 @@ class ProcessingActivity : ComponentActivity() {
                             Text("Run Pipeline (T3-T7)")
                         }
 
+                        matchesBitmap?.let {
+                            Text("T5: ORB Matches", modifier = Modifier.padding(top = 8.dp))
+                            Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = "ORB Matches",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        rectifiedBitmap?.let {
+                            Text("T6: Rectified Pair + Epipolar Lines", modifier = Modifier.padding(top = 8.dp))
+                            Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = "Rectified Pair",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         resultBitmap?.let {
+                            Text("T7: Disparity Map", modifier = Modifier.padding(top = 8.dp))
                             Image(
                                 bitmap = it.asImageBitmap(),
                                 contentDescription = "Processing Result",
@@ -100,7 +131,11 @@ class ProcessingActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun processStereo(onUpdateStatus: (String) -> Unit): Bitmap? = withContext(Dispatchers.Default) {
+    private suspend fun processStereo(
+        onUpdateStatus: (String) -> Unit,
+        onUpdateMatches: (Bitmap) -> Unit,
+        onUpdateRectified: (Bitmap) -> Unit
+    ): Bitmap? = withContext(Dispatchers.Default) {
         try {
             // T3: Load pair
             onUpdateStatus("T3: Loading images...")
@@ -138,7 +173,7 @@ class ProcessingActivity : ComponentActivity() {
 
             // T5: ORB and Matching
             onUpdateStatus("T5: Detecting features (ORB)...")
-            val orb = ORB.create(1000)
+            val orb = ORB.create(2000) // Increased features
             val keypointsL = MatOfKeyPoint()
             val keypointsR = MatOfKeyPoint()
             val descriptorsL = Mat()
@@ -146,16 +181,21 @@ class ProcessingActivity : ComponentActivity() {
             orb.detectAndCompute(grayL, Mat(), keypointsL, descriptorsL)
             orb.detectAndCompute(grayR, Mat(), keypointsR, descriptorsR)
 
+            if (descriptorsL.empty() || descriptorsR.empty()) {
+                onUpdateStatus("Error: No ORB features found. Ensure images have texture and light.")
+                return@withContext null
+            }
+
             val matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING)
             val matches = MatOfDMatch()
             matcher.match(descriptorsL, descriptorsR, matches)
 
             // Filter matches
             val matchesList = matches.toList()
-            val goodMatches = matchesList.sortedBy { it.distance }.take(matchesList.size / 4)
+            val goodMatches = matchesList.sortedBy { it.distance }.take(200.coerceAtMost(matchesList.size))
             
-            // T6: Fundamental Matrix F
-            onUpdateStatus("T6: Estimating F Matrix...")
+            // T6: Fundamental Matrix F with RANSAC
+            onUpdateStatus("T6: Estimating F Matrix (RANSAC)...")
             val ptsL = mutableListOf<org.opencv.core.Point>()
             val ptsR = mutableListOf<org.opencv.core.Point>()
             val kpL = keypointsL.toList()
@@ -170,32 +210,82 @@ class ProcessingActivity : ComponentActivity() {
             mpL.fromList(ptsL)
             mpR.fromList(ptsR)
 
-            val fMatrix = Calib3d.findFundamentalMat(mpL, mpR, Calib3d.FM_RANSAC, 3.0, 0.99)
+            val mask = Mat()
+            val fMatrix = Calib3d.findFundamentalMat(mpL, mpR, Calib3d.FM_RANSAC, 1.0, 0.99, mask)
+
+            // Filter matches to only show and use RANSAC inliers
+            val inlierPtsL = mutableListOf<org.opencv.core.Point>()
+            val inlierPtsR = mutableListOf<org.opencv.core.Point>()
+            val inlierMatches = mutableListOf<DMatch>()
+            val maskData = ByteArray(mask.rows() * mask.cols())
+            mask.get(0, 0, maskData)
+            
+            for (i in 0 until goodMatches.size) {
+                if (maskData[i].toInt() != 0) {
+                    inlierMatches.add(goodMatches[i])
+                    inlierPtsL.add(ptsL[i])
+                    inlierPtsR.add(ptsR[i])
+                }
+            }
+
+            if (inlierMatches.size < 10) {
+                onUpdateStatus("Error: Too few stable matches (${inlierMatches.size}). Try images with more detail.")
+                return@withContext null
+            }
+
+            // Draw ONLY the inliers for T5
+            val matchesImg = Mat()
+            val inlierMatchesMat = MatOfDMatch()
+            inlierMatchesMat.fromList(inlierMatches)
+            Features2d.drawMatches(grayL, keypointsL, grayR, keypointsR, inlierMatchesMat, matchesImg)
+            onUpdateMatches(StereoUtils.matToBitmap(matchesImg))
 
             // T7: Rectification and Disparity
-            onUpdateStatus("T7: Generating Disparity Map...")
+            onUpdateStatus("T7: Generating Disparity Map (Inliers: ${inlierMatches.size})...")
+            
+            val mInlierL = MatOfPoint2f()
+            val mInlierR = MatOfPoint2f()
+            mInlierL.fromList(inlierPtsL)
+            mInlierR.fromList(inlierPtsR)
+
             val h1 = Mat()
             val h2 = Mat()
-            Calib3d.stereoRectifyUncalibrated(mpL, mpR, fMatrix, grayL.size(), h1, h2)
+            Calib3d.stereoRectifyUncalibrated(mInlierL, mInlierR, fMatrix, grayL.size(), h1, h2)
             
             val rectL = Mat()
             val rectR = Mat()
             Imgproc.warpPerspective(grayL, rectL, h1, grayL.size())
             Imgproc.warpPerspective(grayR, rectR, h2, grayR.size())
 
-            val stereoBM = StereoBM.create(16, 15)
+            // Visualize Rectified Pair with Epipolar Lines
+            val combinedRect = Mat(rectL.rows(), rectL.cols() * 2, CvType.CV_8U)
+            val leftRectSub = combinedRect.submat(0, rectL.rows(), 0, rectL.cols())
+            val rightRectSub = combinedRect.submat(0, rectL.rows(), rectL.cols(), rectL.cols() * 2)
+            rectL.copyTo(leftRectSub)
+            rectR.copyTo(rightRectSub)
+
+            // Convert to color to draw green lines
+            val colorCombined = Mat()
+            Imgproc.cvtColor(combinedRect, colorCombined, Imgproc.COLOR_GRAY2BGR)
+
+            val step = colorCombined.rows() / 15
+            for (i in 1..14) {
+                val y = (i * step).toDouble()
+                Imgproc.line(colorCombined, org.opencv.core.Point(0.0, y), org.opencv.core.Point(colorCombined.cols().toDouble(), y), Scalar(0.0, 255.0, 0.0), 1)
+            }
+            onUpdateRectified(StereoUtils.matToBitmap(colorCombined))
+
+            val stereoBM = StereoBM.create(64, 21)
             val disparity = Mat()
             stereoBM.compute(rectL, rectR, disparity)
             
-            // Normalize disparity for visualization
             val disp8 = Mat()
-            disparity.convertTo(disp8, CvType.CV_8U, 255.0 / 16.0)
+            Core.normalize(disparity, disp8, 0.0, 255.0, Core.NORM_MINMAX, CvType.CV_8U)
             
-            // Save disparity for T8
             val dispFile = File(filesDir, "disparity.png")
             org.opencv.imgcodecs.Imgcodecs.imwrite(dispFile.absolutePath, disparity)
 
-            onUpdateStatus("Done! Disparity map generated.")
+            onUpdateStatus("Done! Inliers: ${inlierMatches.size}")
             return@withContext StereoUtils.matToBitmap(disp8)
 
         } catch (e: Exception) {
