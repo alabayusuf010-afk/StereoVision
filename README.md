@@ -64,6 +64,11 @@ Follow these steps to reproduce the experiment as described in the course materi
 3. Sync Gradle and build the project.
 4. Deploy to a physical Android device.
 
+## 🔗 Project Resources
+- **Presentation Slides**: [Google Slides](https://docs.google.com/presentation/d/1ZIOWcIPi5HoriK5pGHp3YpO_tCx21WlC/edit?usp=sharing&ouid=105571612435093965131&rtpof=true&sd=true)
+- **Final Report**: [Google Drive (PDF)](https://drive.google.com/file/d/1HNoWvnH6nAIgtGTBmBz4ybVmDG3nddeH/view?usp=sharing)
+- **Demo Video**: [YouTube](https://youtu.be/ckCqr9awIRs)
+
 ## 📁 Project Structure
 - `MainActivity.kt`: Main menu and permissions.
 - `CalibrationActivity.kt`: Board detection and K/dist estimation (T1).
