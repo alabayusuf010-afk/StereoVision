@@ -2,81 +2,63 @@
 
 This Android application implements a complete Stereo Vision pipeline using a single smartphone moved along a physical rail. This project was developed as a practical activity for the **Robotic Vision (Visão Robótica)** course at **UFLA (Universidade Federal de Lavras)**.
 
-## 📱 Features
-- **1. Calibration**: Real-time chessboard corner detection and camera calibration ($K$ and $distCoeffs$) using OpenCV. Saves results to `calib.yml`.
-- **2. Capture**: Dual-mode capture (Left/Right) using CameraX to ensure consistent focus and exposure for the stereo pair.
-- **3. Processing**: 
-    - Image undistortion using calibration data.
-    - Feature detection and matching (ORB).
-    - Fundamental Matrix ($F$) estimation via RANSAC.
-    - Uncalibrated Stereo Rectification.
-    - Disparity Map generation using `StereoBM`.
-- **4. Depth / Results**: Calculation of depth $Z$ using focal length and baseline. Export of results to a `.ply` point cloud file.
-- **5. AI Pipeline**: Integration of deep-learning based depth estimation.
+## 🛠️ Software Requirements & Organization
+The implementation is realized entirely in **Android Studio**, utilizing the **OpenCV Android SDK 4.x**. Access to the camera is handled via the **CameraX** library, while all image processing tasks are performed using the native OpenCV module (`org.opencv.*`).
 
-I decided to include the steps I took to perform the experirment (as seen below) for the ease of prospective students to easily through the process;
+### Class / Activity Responsibilities
+| Class / Activity | Responsibility |
+| :--- | :--- |
+| **MainActivity** | App home screen; navigates to Calibration, Capture, Processing, and Depth/Results. Verifies camera and storage permissions; loads the OpenCV library (`OpenCVLoader`). |
+| **CalibrationActivity** | Executes **T1**: Camera preview, chessboard pattern detection, pose accumulation, and calibration. Saves the intrinsic matrix $K$ and distortion coefficients $distCoeffs$ to `files/calib.yml`. |
+| **CaptureActivity** | Executes **T2**: CameraX `PreviewView` with focus and exposure lock. Includes a capture button to save the stereo pair (`I_L` and `I_R`) as JPEG in internal storage. |
+| **ProcessingActivity** | Executes **T3 to T7**: Loads the image pair, performs undistortion, ORB feature detection and matching, Fundamental Matrix ($F$) estimation, rectification, and disparity map generation. Displays progress and results. |
+| **DepthActivity** | Executes **T8**: Calculates the depth $Z$ from the disparity map and exports the result as a `.ply` point cloud file. |
+| **StereoUtils** | Utility functions: Reading/writing `Mat` objects in `.yml`, `Mat` $\leftrightarrow$ `Bitmap` conversion, and drawing epipolar lines. |
+
 ## 🧪 Experimental Procedure
-
-Follow these steps to reproduce the experiment as described in the course material:
+Follow these steps to reproduce the experiment:
 
 ### Phase 1: Physical Setup
-1. I mounted my smartphone on a stable tripod.
-2. I prepare a printed **Chessboard Pattern** (providing 9x6 inner corners) on a flat surface.
-3. I ensured the scene has adequate lighting and distinct features for better matching.
+1. Mount the smartphone on a stable tripod or rail system.
+2. Prepare a printed **Chessboard Pattern** (e.g., 9x6 inner corners) on a flat surface.
+3. Ensure adequate lighting and distinct scene features.
 
-### Phase 2: Camera Calibration (Task T1)
-1. Open the **1. Calibration** menu in the app. This was only possible because the app was functional in my phone after launching from Android Studio
-2. Pointed the camera at the chessboard from various angles and distances.
-3. When the board is detected, I clicked **"Add Pose"**. Collect at least **10 to 15 different poses**.
-4. Click **"Calibrate"**. The app will calculate the intrinsic parameters and save them to `calib.yml` in the app's internal storage.
+### Phase 2: Calibration (T1)
+1. Open **1. Calibration**.
+2. Capture at least **10-15 different poses** of the chessboard.
+3. Click **"Calibrate"** to save the intrinsic parameters to `calib.yml`.
 
-### Phase 3: Stereo Capture (Task T2)
-1. Open the **2. Capture** menu.
-2. Slide the phone to the **Left** position on your rail. Click **"CAPTURE LEFT"** (saves as `I_L.jpg`).
-3. Slide the phone to the **Right** position by a known distance (the Baseline). Click **"CAPTURE RIGHT"** (saves as `I_R.jpg`).
+### Phase 3: Stereo Capture (T2)
+1. Open **2. Capture**.
+2. Capture the **Left** image (`I_L.jpg`), slide the phone by a fixed **Baseline** distance, and capture the **Right** image (`I_R.jpg`).
 
-### Phase 4: Image Processing (Tasks T3-T7)
-1. Open the **3. Processing** menu.
-2. Click **"Run Pipeline"**.
-3. The app will automatically load the pair, perform undistortion (if calibration exists), detect ORB features, estimate the Fundamental Matrix ($F$), and rectify the images.
-4. A **Disparity Map** will be generated and displayed on the screen.
+### Phase 4: Processing (T3-T7)
+1. Open **3. Processing** and click **"Run Pipeline"**.
+2. The app performs rectification and generates a **Disparity Map**.
 
-### Phase 5: Depth Calculation & Export (Task T8)
-1. Open the **4. Depth / Results** menu.
-2. Enter the **Baseline** distance (in meters) that you used during capture.
-3. Click **"Generate Point Cloud (.ply)"**.
-4. The app calculates the 3D coordinates ($X, Y, Z$) and saves a `cloud.ply` file to your device's external storage.
-5. **Visualization**: Transfer the `.ply` file to a PC and open it with **MeshLab** or **CloudCompare** to view the 3D reconstruction.
+### Phase 5: Depth & Export (T8)
+1. Open **4. Depth / Results**.
+2. Enter the **Baseline** distance used.
+3. Click **"Generate Point Cloud (.ply)"** to export the 3D data.
 
-## 🛠️ Technical Specifications
-- **Android Studio**: Ladybug (or newer)
-- **Minimum SDK**: 24 (Android 7.0)
-- **Target SDK**: 36
-- **Languages**: Kotlin with Jetpack Compose
-- **Main Dependencies**:
-    - [OpenCV 4.13.0](https://opencv.org/) (Static loading via Maven Central)
-    - [CameraX](https://developer.android.com/training/camerax)
-    - Jetpack Compose Material 3
+## 📦 Mandatory Delivery Components
+As per the course requirements, the project delivery includes:
 
-## 🚀 Build Instructions
-1. Clone this repository: `git clone https://github.com/alabayusuf010-afk/StereoVision.git`
-2. Open in **Android Studio**.
-3. Sync Gradle and build the project.
-4. Deploy to a physical Android device.
+1.  **Technical Report (PDF)**: Detailed article (IEEE/SBC format) covering the setup, pipeline, and results (including $K$, $F$, RANSAC inliers, and error analysis).
+2.  **Git Repository**: Full source code with incremental commit history, `README.md`, and representative image captures.
+3.  **Demo Video (YouTube)**: A 15-minute demonstration covering the physical setup, a live code pipeline run, and result discussion.
+4.  **PowerPoint Presentation**: Slides used for the oral presentation.
 
 ## 🔗 Project Resources
 - **Presentation Slides**: [Google Slides](https://docs.google.com/presentation/d/1ZIOWcIPi5HoriK5pGHp3YpO_tCx21WlC/edit?usp=sharing&ouid=105571612435093965131&rtpof=true&sd=true)
 - **Final Report**: [Google Drive (PDF)](https://drive.google.com/file/d/1HNoWvnH6nAIgtGTBmBz4ybVmDG3nddeH/view?usp=sharing)
 - **Demo Video**: [YouTube](https://youtu.be/ckCqr9awIRs)
 
-## 📁 Project Structure
-- `MainActivity.kt`: Main menu and permissions.
-- `CalibrationActivity.kt`: Board detection and K/dist estimation (T1).
-- `CaptureActivity.kt`: Consistent stereo pair capture (T2).
-- `ProcessingActivity.kt`: ORB matching, F estimation, and Disparity (T3-T7).
-- `DepthActivity.kt`: Z calculation and PLY export (T8).
-- `StereoUtils.kt`: CV utility functions and file I/O.
-- AiPipelineActivity.kt: Implementation of the AI-driven vision tasks.
+## 🚀 Build Instructions
+1. Clone the repository: `git clone https://github.com/alabayusuf010-afk/StereoVision.git`
+2. Open in **Android Studio** (Ladybug or newer).
+3. Sync Gradle and deploy to a physical device (Minimum SDK 24).
+
 ## 👨‍🏫 Acknowledgments
 - **Institution**: UFLA - Departamento de Automática
 - **Professor**: Arthur de Miranda Neto
