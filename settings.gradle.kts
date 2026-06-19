@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "StereoVision"
+rootProject.name = "StereoVIO"
 include(":app")
  

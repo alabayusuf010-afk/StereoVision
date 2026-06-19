@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,21 @@ class DepthActivity : ComponentActivity() {
             StereoVisionTheme {
                 var baseline by remember { mutableStateOf("0.1") } // meters
                 var statusText by remember { mutableStateOf("Ready to calculate depth") }
+
+                // Automatically try to load the IMU-calculated baseline
+                LaunchedEffect(Unit) {
+                    val poseFile = File(filesDir, "pose.txt")
+                    if (poseFile.exists()) {
+                        try {
+                            val poseData = poseFile.readText().split(",").map { it.toFloat() }
+                            val imuBaseline = kotlin.math.sqrt(poseData[0]*poseData[0] + poseData[1]*poseData[1] + poseData[2]*poseData[2])
+                            baseline = "%.3f".format(imuBaseline)
+                            statusText = "IMU Baseline detected: ${baseline}m"
+                        } catch (e: Exception) {
+                            Log.e("Depth", "Failed to load IMU baseline", e)
+                        }
+                    }
+                }
 
                 Scaffold { innerPadding ->
                     Column(
@@ -93,7 +109,8 @@ class DepthActivity : ComponentActivity() {
                 
                 val f = if (calib != null) calib.first.get(0, 0)[0] else 1000.0 // focal length in pixels
                 
-                val plyFile = File(getExternalFilesDir(null), "cloud.ply")
+                // Save to internal filesDir so it's in the same place as images/pose
+                val plyFile = File(filesDir, "cloud.ply")
                 
                 // Optimized: Write directly to file to avoid OutOfMemory crash
                 plyFile.bufferedWriter().use { writer ->

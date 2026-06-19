@@ -241,21 +241,46 @@ class ProcessingActivity : ComponentActivity() {
             onUpdateMatches(StereoUtils.matToBitmap(matchesImg))
 
             // T7: Rectification and Disparity
-            onUpdateStatus("T7: Generating Disparity Map (Inliers: ${inlierMatches.size})...")
+            onUpdateStatus("T7: Generating Disparity Map...")
             
-            val mInlierL = MatOfPoint2f()
-            val mInlierR = MatOfPoint2f()
-            mInlierL.fromList(inlierPtsL)
-            mInlierR.fromList(inlierPtsR)
+            val poseFile = File(filesDir, "pose.txt")
+            var rectL = Mat()
+            var rectR = Mat()
 
-            val h1 = Mat()
-            val h2 = Mat()
-            Calib3d.stereoRectifyUncalibrated(mInlierL, mInlierR, fMatrix, grayL.size(), h1, h2)
-            
-            val rectL = Mat()
-            val rectR = Mat()
-            Imgproc.warpPerspective(grayL, rectL, h1, grayL.size())
-            Imgproc.warpPerspective(grayR, rectR, h2, grayR.size())
+            if (poseFile.exists() && calib != null) {
+                onUpdateStatus("T7: Rectifying using IMU Pose (VIO)...")
+                val (k, dist) = calib
+                val poseData = poseFile.readText().split(",").map { it.toFloat() }
+                
+                // Translation vector t
+                val t = Mat(3, 1, CvType.CV_64F)
+                t.put(0, 0, poseData[0].toDouble())
+                t.put(1, 0, poseData[1].toDouble())
+                t.put(2, 0, poseData[2].toDouble())
+                
+                // Rotation matrix R
+                val R = StereoUtils.eulerToRotationMatrix(poseData[3], poseData[4], poseData[5])
+                
+                val baseline = kotlin.math.sqrt(poseData[0]*poseData[0] + poseData[1]*poseData[1] + poseData[2]*poseData[2])
+                onUpdateStatus("T7: IMU Baseline: ${"%.2f".format(baseline)}m. Rectifying...")
+
+                val rectified = StereoUtils.rectifyWithIMU(grayL, grayR, k, dist, R, t)
+                rectL = rectified.first
+                rectR = rectified.second
+            } else {
+                onUpdateStatus("T7: IMU Pose not found, falling back to Uncalibrated Rectification...")
+                val mInlierL = MatOfPoint2f()
+                val mInlierR = MatOfPoint2f()
+                mInlierL.fromList(inlierPtsL)
+                mInlierR.fromList(inlierPtsR)
+
+                val h1 = Mat()
+                val h2 = Mat()
+                Calib3d.stereoRectifyUncalibrated(mInlierL, mInlierR, fMatrix, grayL.size(), h1, h2)
+                
+                Imgproc.warpPerspective(grayL, rectL, h1, grayL.size())
+                Imgproc.warpPerspective(grayR, rectR, h2, grayR.size())
+            }
 
             // Visualize Rectified Pair with Epipolar Lines
             val combinedRect = Mat(rectL.rows(), rectL.cols() * 2, CvType.CV_8U)

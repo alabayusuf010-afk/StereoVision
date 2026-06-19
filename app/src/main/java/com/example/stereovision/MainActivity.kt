@@ -85,10 +85,15 @@ fun MainMenu(onNavigate: (Class<*>) -> Unit, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Stereo Vision App",
+            text = "StereoVIO App",
             style = MaterialTheme.typography.headlineMedium
         )
-        Spacer(modifier = Modifier.height(32.dp))
+        Text(
+            text = "Visual-Inertial Odometry Mode",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         
         MenuButton("1. Calibration", onClick = { onNavigate(CalibrationActivity::class.java) })
         MenuButton("2. Capture", onClick = { onNavigate(CaptureActivity::class.java) })

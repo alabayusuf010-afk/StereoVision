@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.hardware.SensorManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -43,10 +44,13 @@ import java.util.concurrent.Executors
 class CaptureActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private var imageCapture: ImageCapture? = null
+    private lateinit var sensorManager: SensorManager
+    private val motionTracker = MotionTracker()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         cameraExecutor = Executors.newSingleThreadExecutor()
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
 
         setContent {
             StereoVisionTheme {
@@ -55,9 +59,8 @@ class CaptureActivity : ComponentActivity() {
                 Scaffold { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                         CameraPreview(
-                            modifier = Modifier.fillMaxSize(),
-                            onImageCaptureReady = { imageCapture = it }
-                        )
+                            modifier = Modifier.fillMaxSize()
+                        ) { imageCapture = it }
 
                         Column(
                             modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
@@ -89,6 +92,11 @@ class CaptureActivity : ComponentActivity() {
     private fun takePhoto(mode: String, onComplete: () -> Unit) {
         val imageCapture = imageCapture ?: return
 
+        // If starting a new pair, reset the tracker
+        if (mode == "LEFT") {
+            motionTracker.reset()
+        }
+
         val name = if (mode == "LEFT") "I_L.jpg" else "I_R.jpg"
         val photoFile = File(filesDir, name)
 
@@ -104,11 +112,30 @@ class CaptureActivity : ComponentActivity() {
 
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val msg = "Photo saved: ${photoFile.absolutePath}"
+                    
+                    // If this was the RIGHT image, save the accumulated pose since LEFT
+                    if (mode == "RIGHT") {
+                        val pose = motionTracker.getRelativePose()
+                        val poseFile = File(filesDir, "pose.txt")
+                        poseFile.writeText(pose.joinToString(","))
+                        Log.d("CaptureActivity", "Pose saved: ${pose.contentToString()}")
+                    }
+
                     Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
                     onComplete()
                 }
             }
         )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        motionTracker.start(sensorManager)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        motionTracker.stop(sensorManager)
     }
 
     override fun onDestroy() {
